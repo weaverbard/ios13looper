@@ -61,12 +61,21 @@ window.addEventListener('DOMContentLoaded', () => {
     audioInput.value = '';
     progress.style.display = 'none';
     loopPlayer.classList.add('hidden');
-    console.log('WeaverLoops 1.17 initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper initialized. User Agent:', navigator.userAgent);
+
+    function debugLog(message) {
+        console.log(message);
+        const debugDiv = document.getElementById('debugLog');
+        if (debugDiv) {
+            debugDiv.innerHTML += `<p>${new Date().toISOString()}: ${message}</p>`;
+            debugDiv.scrollTop = debugDiv.scrollHeight;
+        }
+    }
 
     function showError(message) {
         error.textContent = message;
         error.classList.remove('hidden');
-        console.error('Error:', message);
+        debugLog('Error: ' + message);
     }
 
     function clearError() {
@@ -75,24 +84,29 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function showProgress(message) {
-        console.log('showProgress:', message);
+        debugLog('showProgress: ' + message);
         progressMessage.textContent = message;
         progress.style.display = 'flex';
     }
 
     function hideProgress() {
-        console.log('hideProgress called');
+        debugLog('hideProgress called');
         progressMessage.textContent = '';
         progress.style.display = 'none';
     }
 
     function resumeAudioContext() {
         if (audioContext && audioContext.state === 'suspended') {
-            return audioContext.resume().catch(err => {
+            debugLog('Resuming AudioContext, current state: ' + audioContext.state);
+            return audioContext.resume().then(() => {
+                debugLog('AudioContext resumed, state: ' + audioContext.state);
+            }).catch(err => {
                 showError('Failed to resume audio context: ' + err.message);
-                console.error('AudioContext resume error:', err);
+                debugLog('AudioContext resume error: ' + err.message);
+                throw err;
             });
         }
+        debugLog('AudioContext already running or not created');
         return Promise.resolve();
     }
 
@@ -156,7 +170,7 @@ window.addEventListener('DOMContentLoaded', () => {
         hideProgress();
     }
 
-    uploadButton.addEventListener('click', () => {
+    uploadButton.addEventListener('click', async () => {
         const file = audioInput.files[0];
         if (!file) {
             showError('No file selected.');
@@ -168,58 +182,54 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        debugLog('Starting file load, file: ' + file.name + ', size: ' + file.size + ', type: ' + file.type);
         showProgress('Loading audio...');
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                if (!audioContext) {
-                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    console.log('AudioContext created, sampleRate:', audioContext.sampleRate);
-                }
-                await resumeAudioContext();
-                const arrayBuffer = e.target.result;
-
-                // Add timeout for decodeAudioData
-                const decodePromise = audioContext.decodeAudioData(arrayBuffer);
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error('Audio decoding timed out after 10 seconds')), 10000);
-                });
-                audioBuffer = await Promise.race([decodePromise, timeoutPromise]).catch(err => {
-                    throw new Error('decodeAudioData failed: ' + err.message);
-                });
-
-                if (audioBuffer.duration < 0.2) {
-                    showError('Audio file is too short.');
-                    audioBuffer = null;
-                    hideProgress();
-                    return;
-                }
-                originalBuffer = audioContext.createBuffer(
-                    audioBuffer.numberOfChannels,
-                    audioBuffer.length,
-                    audioBuffer.sampleRate
-                );
-                for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
-                    originalBuffer.getChannelData(channel).set(audioBuffer.getChannelData(channel));
-                }
-                resetToEditState();
-                hideProgress();
-            } catch (err) {
-                showError('Failed to load audio: ' + err.message);
-                console.error('Audio loading error:', err);
-                console.log('User Agent:', navigator.userAgent);
-                console.log('File type:', file.type, 'Size:', file.size, 'Name:', file.name);
-                hideProgress();
+        try {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                debugLog('AudioContext created, sampleRate: ' + audioContext.sampleRate);
             }
-        };
-        reader.onerror = () => {
-            showError('Error reading file.');
-            console.error('FileReader error:', reader.error);
-            console.log('User Agent:', navigator.userAgent);
-            console.log('File type:', file.type, 'Size:', file.size, 'Name:', file.name);
+            debugLog('Resuming AudioContext');
+            await resumeAudioContext();
+            debugLog('Fetching file as ArrayBuffer');
+            const response = await fetch(URL.createObjectURL(file));
+            const arrayBuffer = await response.arrayBuffer();
+            debugLog('Fetched arrayBuffer, length: ' + arrayBuffer.byteLength);
+            debugLog('Starting decodeAudioData');
+            const decodePromise = audioContext.decodeAudioData(arrayBuffer);
+            const timeoutPromise = new Promise((_, reject) => {
+                setTimeout(() => reject(new Error('Audio decoding timed out after 30 seconds')), 30000);
+            });
+            audioBuffer = await Promise.race([decodePromise, timeoutPromise]).catch(err => {
+                throw new Error('decodeAudioData failed: ' + err.message);
+            });
+            debugLog('Audio decoded, duration: ' + audioBuffer.duration);
+            if (audioBuffer.duration < 0.2) {
+                showError('Audio file is too short.');
+                audioBuffer = null;
+                hideProgress();
+                return;
+            }
+            originalBuffer = audioContext.createBuffer(
+                audioBuffer.numberOfChannels,
+                audioBuffer.length,
+                audioBuffer.sampleRate
+            );
+            for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
+                originalBuffer.getChannelData(channel).set(audioBuffer.getChannelData(channel));
+            }
+            debugLog('Resetting to edit state');
+            resetToEditState();
+            debugLog('Hiding progress');
             hideProgress();
-        };
-        reader.readAsArrayBuffer(file);
+        } catch (err) {
+            showError('Failed to load audio: ' + err.message);
+            debugLog('Error: ' + err.message);
+            console.error('Audio loading error:', err);
+            debugLog('User Agent: ' + navigator.userAgent);
+            debugLog('File type: ' + file.type + ', Size: ' + file.size + ', Name: ' + file.name);
+            hideProgress();
+        }
     });
 
     function drawWaveform() {
@@ -668,8 +678,8 @@ window.addEventListener('DOMContentLoaded', () => {
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 await navigator.share({
                     files: [file],
-                    title: 'WeaverLoops Seamless Loop',
-                    text: 'Share this audio loop created with WeaverLoops'
+                    title: 'iOS13Looper Seamless Loop',
+                    text: 'Share this audio loop created with iOS13Looper'
                 });
             } else {
                 showError('Sharing is not supported on this device. Try downloading instead.');
