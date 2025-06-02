@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS13Looper 1.5x</title>
+    <title>iOS13Looper 1.51</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>iOS13Looper 1.5x</h1>
+        <h1>iOS13Looper 1.51</h1>
         <div class="step">
             <h2>1. Upload Audio</h2>
             <input type="file" id="audioInput" accept="audio/wav,audio/mpeg,audio/aiff,.wav,.mp3,.aif,.aiff">
@@ -80,7 +80,7 @@
         <div class="step hidden" id="downloadStep">
             <h2>5. Download Loop</h2>
             <p>Play or share your loop, or download it to your device.</p>
-            <audio id="loopPlayer" controls></audio>
+            <audio id="loopPlayer" controls class="hidden"></audio>
             <div class="controls">
                 <button id="downloadBtn">DOWNLOAD LOOP</button>
                 <button id="shareBtn">SHARE LOOP</button>
@@ -92,6 +92,7 @@
             <p id="progressMessage"></p>
         </div>
         <p id="error" class="error hidden"></p>
+        <div id="debugLog" style="position: fixed; bottom: 10px; left: 10px; background: #fff; color: #000; padding: 10px; max-height: 200px; overflow-y: auto; z-index: 1000;"></div>
     </div>
     <script src="script.js"></script>
 </body>
