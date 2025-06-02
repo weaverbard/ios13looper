@@ -49,11 +49,10 @@ window.addEventListener('DOMContentLoaded', () => {
     const elements = [canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime, 
                      selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
                      playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
-                     previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn,
+                     previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
                      previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
                      loopPlayer, error, progress, progressMessage];
     if (elements.some(el => !el)) {
-        console.error('Initialization error: Missing UI elements.');
         showError('Initialization error: One or more UI elements are missing.');
         return;
     }
@@ -66,7 +65,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function debugLog(message) {
         console.log(message);
-        const debugDiv = document.getElement('div');
+        const debugDiv = document.getElementById('debugLog');
         if (debugDiv) {
             debugDiv.innerHTML += `<p>${new Date().toISOString()}: ${message}</p>`;
             debugDiv.scrollTop = debugDiv.scrollHeight;
@@ -85,7 +84,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function showProgress(message) {
-        debugLog('Progress: ' + message);
+        debugLog('showProgress: ' + message);
         progressMessage.textContent = message;
         progress.style.display = 'flex';
     }
@@ -100,7 +99,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (audioContext && audioContext.state === 'suspended') {
             debugLog('Resuming AudioContext, current state: ' + audioContext.state);
             return audioContext.resume().then(() => {
-                debugLog('AudioContext resumed, state: + audioContext.state);
+                debugLog('AudioContext resumed, state: ' + audioContext.state);
             }).catch(err => {
                 showError('Failed to resume audio context: ' + err.message);
                 debugLog('AudioContext resume error: ' + err.message);
@@ -127,9 +126,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function resizeCanvases() {
         canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-        canvas.height = canvas.height * window.devicePixelRatio;
+        canvas.height = canvas.offsetHeight * window.devicePixelRatio;
         previewCanvas.width = previewCanvas.offsetWidth * window.devicePixelRatio;
-        previewCanvas.height = previewCanvas.height * window.devicePixelRatio;
+        previewCanvas.height = previewCanvas.offsetHeight * window.devicePixelRatio;
         drawWaveform();
         drawPreviewWaveform();
     }
