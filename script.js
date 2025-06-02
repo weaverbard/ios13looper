@@ -49,10 +49,11 @@ window.addEventListener('DOMContentLoaded', () => {
     const elements = [canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime, 
                      selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
                      playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
-                     previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
+                     previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn,
                      previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
                      loopPlayer, error, progress, progressMessage];
     if (elements.some(el => !el)) {
+        console.error('Initialization error: Missing UI elements.');
         showError('Initialization error: One or more UI elements are missing.');
         return;
     }
@@ -65,7 +66,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function debugLog(message) {
         console.log(message);
-        const debugDiv = document.getElementById('debugLog');
+        const debugDiv = document.getElement('div');
         if (debugDiv) {
             debugDiv.innerHTML += `<p>${new Date().toISOString()}: ${message}</p>`;
             debugDiv.scrollTop = debugDiv.scrollHeight;
@@ -84,7 +85,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function showProgress(message) {
-        debugLog('showProgress: ' + message);
+        debugLog('Progress: ' + message);
         progressMessage.textContent = message;
         progress.style.display = 'flex';
     }
@@ -99,7 +100,7 @@ window.addEventListener('DOMContentLoaded', () => {
         if (audioContext && audioContext.state === 'suspended') {
             debugLog('Resuming AudioContext, current state: ' + audioContext.state);
             return audioContext.resume().then(() => {
-                debugLog('AudioContext resumed, state: ' + audioContext.state);
+                debugLog('AudioContext resumed, state: + audioContext.state);
             }).catch(err => {
                 showError('Failed to resume audio context: ' + err.message);
                 debugLog('AudioContext resume error: ' + err.message);
@@ -126,9 +127,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function resizeCanvases() {
         canvas.width = canvas.offsetWidth * window.devicePixelRatio;
-        canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+        canvas.height = canvas.height * window.devicePixelRatio;
         previewCanvas.width = previewCanvas.offsetWidth * window.devicePixelRatio;
-        previewCanvas.height = previewCanvas.offsetHeight * window.devicePixelRatio;
+        previewCanvas.height = previewCanvas.height * window.devicePixelRatio;
         drawWaveform();
         drawPreviewWaveform();
     }
@@ -203,13 +204,29 @@ window.addEventListener('DOMContentLoaded', () => {
             const arrayBuffer = await response.arrayBuffer();
             debugLog('Fetched arrayBuffer, length: ' + arrayBuffer.byteLength);
             debugLog('Starting decodeAudioData');
-            const decodePromise = audioContext.decodeAudioData(arrayBuffer);
+
+            // Compatibility for older Safari decodeAudioData
+            const decodeAudioDataPromise = new Promise((resolve, reject) => {
+                // Try Promise-based decodeAudioData
+                audioContext.decodeAudioData(arrayBuffer).then(resolve).catch(() => {
+                    // Fallback to callback-based decodeAudioData for older Safari
+                    debugLog('Falling back to callback-based decodeAudioData');
+                    audioContext.decodeAudioData(
+                        arrayBuffer,
+                        (decodedBuffer) => resolve(decodedBuffer),
+                        (err) => reject(new Error('Callback-based decodeAudioData failed: ' + (err.message || 'Unknown error')))
+                    );
+                });
+            });
+
             const timeoutPromise = new Promise((_, reject) => {
                 setTimeout(() => reject(new Error('Audio decoding timed out after 30 seconds')), 30000);
             });
-            audioBuffer = await Promise.race([decodePromise, timeoutPromise]).catch(err => {
+
+            audioBuffer = await Promise.race([decodeAudioDataPromise, timeoutPromise]).catch(err => {
                 throw new Error('decodeAudioData failed: ' + err.message);
             });
+
             debugLog('Audio decoded, duration: ' + audioBuffer.duration);
             if (audioBuffer.duration < 0.2) {
                 showError('Audio file is too short.');
