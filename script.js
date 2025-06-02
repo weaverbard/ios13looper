@@ -61,7 +61,7 @@ window.addEventListener('DOMContentLoaded', () => {
     audioInput.value = '';
     progress.style.display = 'none';
     loopPlayer.classList.add('hidden');
-    console.log('iOS13Looper initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper 1.51 initialized. User Agent:', navigator.userAgent);
 
     function debugLog(message) {
         console.log(message);
@@ -110,6 +110,20 @@ window.addEventListener('DOMContentLoaded', () => {
         return Promise.resolve();
     }
 
+    // Preload AudioContext on first user interaction
+    audioInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadButton.disabled = false;
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                debugLog('AudioContext preloaded on file input, sampleRate: ' + audioContext.sampleRate);
+                resumeAudioContext();
+            }
+        } else {
+            uploadButton.disabled = true;
+        }
+    });
+
     function resizeCanvases() {
         canvas.width = canvas.offsetWidth * window.devicePixelRatio;
         canvas.height = canvas.offsetHeight * window.devicePixelRatio;
@@ -120,14 +134,6 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     window.addEventListener('resize', resizeCanvases);
-
-    audioInput.addEventListener('change', (e) => {
-        if (e.target.files.length > 0) {
-            uploadButton.disabled = false;
-        } else {
-            uploadButton.disabled = true;
-        }
-    });
 
     function resetToEditState() {
         if (!originalBuffer) return;
@@ -193,6 +199,7 @@ window.addEventListener('DOMContentLoaded', () => {
             await resumeAudioContext();
             debugLog('Fetching file as ArrayBuffer');
             const response = await fetch(URL.createObjectURL(file));
+            debugLog('Fetch response received, status: ' + response.status);
             const arrayBuffer = await response.arrayBuffer();
             debugLog('Fetched arrayBuffer, length: ' + arrayBuffer.byteLength);
             debugLog('Starting decodeAudioData');
