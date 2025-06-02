@@ -206,16 +206,28 @@ window.addEventListener('DOMContentLoaded', () => {
 
             // Compatibility for older Safari decodeAudioData
             const decodeAudioDataPromise = new Promise((resolve, reject) => {
-                // Try Promise-based decodeAudioData
-                audioContext.decodeAudioData(arrayBuffer).then(resolve).catch(() => {
-                    // Fallback to callback-based decodeAudioData for older Safari
+                try {
+                    // Try Promise-based decodeAudioData
+                    audioContext.decodeAudioData(arrayBuffer).then(resolve).catch((err) => {
+                        debugLog('Promise-based decodeAudioData failed: ' + err.message);
+                        // Fallback to callback-based decodeAudioData
+                        debugLog('Falling back to callback-based decodeAudioData');
+                        audioContext.decodeAudioData(
+                            arrayBuffer,
+                            (decodedBuffer) => resolve(decodedBuffer),
+                            (err) => reject(new Error('Callback-based decodeAudioData failed: ' + (err.message || 'Unknown error')))
+                        );
+                    });
+                } catch (err) {
+                    // Handle synchronous errors (e.g., Safari 13.1.2 throwing "Not enough arguments")
+                    debugLog('Synchronous decodeAudioData error: ' + err.message);
                     debugLog('Falling back to callback-based decodeAudioData');
                     audioContext.decodeAudioData(
                         arrayBuffer,
                         (decodedBuffer) => resolve(decodedBuffer),
                         (err) => reject(new Error('Callback-based decodeAudioData failed: ' + (err.message || 'Unknown error')))
                     );
-                });
+                }
             });
 
             const timeoutPromise = new Promise((_, reject) => {
