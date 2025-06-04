@@ -44,8 +44,6 @@ window.addEventListener('DOMContentLoaded', () => {
     const error = document.getElementById('error');
     const progress = document.getElementById('progress');
     const progressMessage = document.getElementById('progressMessage');
-    const downloadLinkContainer = document.getElementById('downloadLinkContainer');
-    const downloadLink = document.getElementById('downloadLink');
 
     // Check for missing elements
     const elements = [canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime, 
@@ -53,7 +51,7 @@ window.addEventListener('DOMContentLoaded', () => {
                      playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
                      previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
                      previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
-                     loopPlayer, error, progress, progressMessage, downloadLinkContainer, downloadLink];
+                     loopPlayer, error, progress, progressMessage];
     if (elements.some(el => !el)) {
         showError('Initialization error: One or more UI elements are missing.');
         console.error('Missing elements:', elements.filter(el => !el));
@@ -64,8 +62,7 @@ window.addEventListener('DOMContentLoaded', () => {
     audioInput.value = '';
     progress.style.display = 'none';
     loopPlayer.classList.add('hidden');
-    downloadLinkContainer.classList.add('hidden');
-    console.log('iOS13Looper 1.61 initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper 1.62 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
@@ -168,8 +165,6 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Revoked loopBlobUrl');
         }
         loopBuffer = null;
-        downloadLinkContainer.classList.add('hidden');
-        downloadLink.href = '#';
         resizeCanvases();
         drawWaveform();
         clearError();
@@ -522,12 +517,6 @@ window.addEventListener('DOMContentLoaded', () => {
         console.log('New loopBlobUrl created:', loopBlobUrl);
         loopPlayer.src = loopBlobUrl;
         loopPlayer.classList.remove('hidden');
-        // Set up manual download link
-        const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-        downloadLink.href = loopBlobUrl;
-        downloadLink.download = fileName;
-        downloadLinkContainer.classList.remove('hidden');
-        console.log('Download link set, href:', loopBlobUrl, ', download:', fileName);
         resizeCanvases();
         drawPreviewWaveform();
         hideProgress();
@@ -696,10 +685,6 @@ window.addEventListener('DOMContentLoaded', () => {
                 loopPlayer.classList.remove('hidden');
             }
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-            downloadLink.href = loopBlobUrl;
-            downloadLink.download = fileName;
-            downloadLinkContainer.classList.remove('hidden');
-            console.log('Download link updated, href:', loopBlobUrl, ', download:', fileName);
             const a = document.createElement('a');
             a.href = loopBlobUrl;
             a.download = fileName;
@@ -708,8 +693,7 @@ window.addEventListener('DOMContentLoaded', () => {
             document.body.removeChild(a);
             console.log('Programmatic download triggered for:', fileName);
             setTimeout(() => {
-                // Do not revoke loopBlobUrl here to keep it available for manual download
-                console.log('Delayed revocation skipped to preserve loopBlobUrl for manual download');
+                console.log('Delayed revocation skipped to preserve loopBlobUrl for reuse');
             }, 1000);
         } catch (err) {
             showError('Failed to export loop: ' + err.message);
@@ -731,24 +715,17 @@ window.addEventListener('DOMContentLoaded', () => {
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const file = new File([wavBlob], fileName, { type: 'audio/wav' });
             console.log('File created for share:', fileName, ', type:', file.type);
+            console.log('Checking share support: navigator.share=', !!navigator.share, ', navigator.canShare=', !!navigator.canShare);
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
                 console.log('File sharing supported, attempting to share');
                 await navigator.share({
                     files: [file],
-                    title: 'iOS13Looper Seamless Loop',
-                    text: 'Share this audio loop created with iOS13Looper'
+                    title: 'iOS13Looper Seamless Loop'
                 });
                 console.log('File shared successfully');
-            } else if (navigator.share) {
-                console.log('File sharing not supported, attempting text-based share');
-                await navigator.share({
-                    title: 'iOS13Looper Seamless Loop',
-                    text: 'I created a seamless audio loop with iOS13Looper. Download it from the app to listen!'
-                });
-                console.log('Text shared successfully');
             } else {
-                showError('Sharing is not supported on this device. Try downloading instead.');
-                console.log('Web Share API not supported');
+                showError('Sharing is not supported on this device. Try downloading and sharing manually.');
+                console.log('File sharing not supported: navigator.canShare returned false or undefined');
             }
         } catch (err) {
             showError('Failed to share: ' + err.message);
