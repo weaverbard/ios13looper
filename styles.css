@@ -153,3 +153,22 @@ audio::-webkit-media-controls-current-time-display,
 audio::-webkit-media-controls-time-remaining-display {
     filter: invert(1) hue-rotate(180deg);
 }
+
+.download-btn {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #28a745;
+    color: #fff;
+    text-decoration: none;
+    border-radius: 5px;
+    font-size: 16px;
+    margin: 10px 0;
+}
+
+.download-btn:hover {
+    background-color: #218838;
+}
+
+.download-btn:active {
+    background-color: #1e7e34;
+}
