@@ -44,6 +44,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const error = document.getElementById('error');
     const progress = document.getElementById('progress');
     const progressMessage = document.getElementById('progressMessage');
+    const downloadLinkContainer = document.getElementById('downloadLinkContainer');
+    const downloadLink = document.getElementById('downloadLink');
 
     // Check for missing elements
     const elements = [canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime, 
@@ -51,9 +53,10 @@ window.addEventListener('DOMContentLoaded', () => {
                      playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
                      previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
                      previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
-                     loopPlayer, error, progress, progressMessage];
+                     loopPlayer, error, progress, progressMessage, downloadLinkContainer, downloadLink];
     if (elements.some(el => !el)) {
         showError('Initialization error: One or more UI elements are missing.');
+        console.error('Missing elements:', elements.filter(el => !el));
         return;
     }
 
@@ -61,21 +64,13 @@ window.addEventListener('DOMContentLoaded', () => {
     audioInput.value = '';
     progress.style.display = 'none';
     loopPlayer.classList.add('hidden');
-    console.log('iOS13Looper 1.51 initialized. User Agent:', navigator.userAgent);
-
-    function debugLog(message) {
-        console.log(message);
-        const debugDiv = document.getElementById('debugLog');
-        if (debugDiv) {
-            debugDiv.innerHTML += `<p>${new Date().toISOString()}: ${message}</p>`;
-            debugDiv.scrollTop = debugDiv.scrollHeight;
-        }
-    }
+    downloadLinkContainer.classList.add('hidden');
+    console.log('iOS13Looper 1.61 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
         error.classList.remove('hidden');
-        debugLog('Error: ' + message);
+        console.log('Error:', message);
     }
 
     function clearError() {
@@ -84,29 +79,29 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     function showProgress(message) {
-        debugLog('showProgress: ' + message);
+        console.log('showProgress:', message);
         progressMessage.textContent = message;
         progress.style.display = 'flex';
     }
 
     function hideProgress() {
-        debugLog('hideProgress called');
+        console.log('hideProgress called');
         progressMessage.textContent = '';
         progress.style.display = 'none';
     }
 
     function resumeAudioContext() {
         if (audioContext && audioContext.state === 'suspended') {
-            debugLog('Resuming AudioContext, current state: ' + audioContext.state);
+            console.log('Resuming AudioContext, current state:', audioContext.state);
             return audioContext.resume().then(() => {
-                debugLog('AudioContext resumed, state: ' + audioContext.state);
+                console.log('AudioContext resumed, state:', audioContext.state);
             }).catch(err => {
                 showError('Failed to resume audio context: ' + err.message);
-                debugLog('AudioContext resume error: ' + err.message);
+                console.error('AudioContext resume error:', err);
                 throw err;
             });
         }
-        debugLog('AudioContext already running or not created');
+        console.log('AudioContext already running or not created');
         return Promise.resolve();
     }
 
@@ -114,13 +109,15 @@ window.addEventListener('DOMContentLoaded', () => {
     audioInput.addEventListener('change', (e) => {
         if (e.target.files.length > 0) {
             uploadButton.disabled = false;
+            console.log('File selected:', e.target.files[0].name);
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                debugLog('AudioContext preloaded on file input, sampleRate: ' + audioContext.sampleRate);
+                console.log('AudioContext preloaded on file input, sampleRate:', audioContext.sampleRate);
                 resumeAudioContext();
             }
         } else {
             uploadButton.disabled = true;
+            console.log('No file selected');
         }
     });
 
@@ -168,8 +165,11 @@ window.addEventListener('DOMContentLoaded', () => {
         if (loopBlobUrl) {
             URL.revokeObjectURL(loopBlobUrl);
             loopBlobUrl = null;
+            console.log('Revoked loopBlobUrl');
         }
         loopBuffer = null;
+        downloadLinkContainer.classList.add('hidden');
+        downloadLink.href = '#';
         resizeCanvases();
         drawWaveform();
         clearError();
@@ -188,30 +188,30 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        debugLog('Starting file load, file: ' + file.name + ', size: ' + file.size + ', type: ' + file.type);
+        console.log('Starting file load, file:', file.name, ', size:', file.size, ', type:', file.type);
         showProgress('Loading audio...');
         try {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                debugLog('AudioContext created, sampleRate: ' + audioContext.sampleRate);
+                console.log('AudioContext created, sampleRate:', audioContext.sampleRate);
             }
-            debugLog('Resuming AudioContext');
+            console.log('Resuming AudioContext');
             await resumeAudioContext();
-            debugLog('Fetching file as ArrayBuffer');
+            console.log('Fetching file as ArrayBuffer');
             const response = await fetch(URL.createObjectURL(file));
-            debugLog('Fetch response received, status: ' + response.status);
+            console.log('Fetch response received, status:', response.status);
             const arrayBuffer = await response.arrayBuffer();
-            debugLog('Fetched arrayBuffer, length: ' + arrayBuffer.byteLength);
-            debugLog('Starting decodeAudioData');
+            console.log('Fetched arrayBuffer, length:', arrayBuffer.byteLength);
+            console.log('Starting decodeAudioData');
 
             // Compatibility for older Safari decodeAudioData
             const decodeAudioDataPromise = new Promise((resolve, reject) => {
                 try {
                     // Try Promise-based decodeAudioData
                     audioContext.decodeAudioData(arrayBuffer).then(resolve).catch((err) => {
-                        debugLog('Promise-based decodeAudioData failed: ' + err.message);
+                        console.log('Promise-based decodeAudioData failed:', err.message);
                         // Fallback to callback-based decodeAudioData
-                        debugLog('Falling back to callback-based decodeAudioData');
+                        console.log('Falling back to callback-based decodeAudioData');
                         audioContext.decodeAudioData(
                             arrayBuffer,
                             (decodedBuffer) => resolve(decodedBuffer),
@@ -220,8 +220,8 @@ window.addEventListener('DOMContentLoaded', () => {
                     });
                 } catch (err) {
                     // Handle synchronous errors (e.g., Safari 13.1.2 throwing "Not enough arguments")
-                    debugLog('Synchronous decodeAudioData error: ' + err.message);
-                    debugLog('Falling back to callback-based decodeAudioData');
+                    console.log('Synchronous decodeAudioData error:', err.message);
+                    console.log('Falling back to callback-based decodeAudioData');
                     audioContext.decodeAudioData(
                         arrayBuffer,
                         (decodedBuffer) => resolve(decodedBuffer),
@@ -238,7 +238,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 throw new Error('decodeAudioData failed: ' + err.message);
             });
 
-            debugLog('Audio decoded, duration: ' + audioBuffer.duration);
+            console.log('Audio decoded, duration:', audioBuffer.duration);
             if (audioBuffer.duration < 0.2) {
                 showError('Audio file is too short.');
                 audioBuffer = null;
@@ -253,16 +253,15 @@ window.addEventListener('DOMContentLoaded', () => {
             for (let channel = 0; channel < audioBuffer.numberOfChannels; channel++) {
                 originalBuffer.getChannelData(channel).set(audioBuffer.getChannelData(channel));
             }
-            debugLog('Resetting to edit state');
+            console.log('Resetting to edit state');
             resetToEditState();
-            debugLog('Hiding progress');
+            console.log('Hiding progress');
             hideProgress();
         } catch (err) {
             showError('Failed to load audio: ' + err.message);
-            debugLog('Error: ' + err.message);
             console.error('Audio loading error:', err);
-            debugLog('User Agent: ' + navigator.userAgent);
-            debugLog('File type: ' + file.type + ', Size: ' + file.size + ', Name: ' + file.name);
+            console.log('User Agent:', navigator.userAgent);
+            console.log('File type:', file.type, ', Size:', file.size, ', Name:', file.name);
             hideProgress();
         }
     });
@@ -514,10 +513,21 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('previewStep').classList.remove('hidden');
         document.getElementById('downloadStep').classList.remove('hidden');
         const wavBlob = bufferToWav(loopBuffer);
-        if (loopBlobUrl) URL.revokeObjectURL(loopBlobUrl);
+        console.log('WAV blob created for preview, size:', wavBlob.size, 'bytes');
+        if (loopBlobUrl) {
+            URL.revokeObjectURL(loopBlobUrl);
+            console.log('Revoked previous loopBlobUrl');
+        }
         loopBlobUrl = URL.createObjectURL(wavBlob);
+        console.log('New loopBlobUrl created:', loopBlobUrl);
         loopPlayer.src = loopBlobUrl;
         loopPlayer.classList.remove('hidden');
+        // Set up manual download link
+        const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+        downloadLink.href = loopBlobUrl;
+        downloadLink.download = fileName;
+        downloadLinkContainer.classList.remove('hidden');
+        console.log('Download link set, href:', loopBlobUrl, ', download:', fileName);
         resizeCanvases();
         drawPreviewWaveform();
         hideProgress();
@@ -609,6 +619,7 @@ window.addEventListener('DOMContentLoaded', () => {
         source = null;
         isPlaying = false;
         previewIsPlaying = false;
+        console.log('Resetting to edit state');
         resetToEditState();
     });
 
@@ -651,51 +662,58 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     downloadBtn.addEventListener('click', async () => {
-        if (!audioBuffer) return;
+        if (!audioBuffer) {
+            showError('No audio loaded.');
+            console.log('No audio loaded for download');
+            return;
+        }
         await resumeAudioContext();
         const crossfadeDuration = parseFloat(crossfadeSelect.value);
         if (crossfadeDuration > audioBuffer.duration / 2) {
             showError('Crossfade duration cannot exceed half the audio length.');
+            console.log('Invalid crossfade duration:', crossfadeDuration);
             return;
         }
         showProgress('Exporting loop...');
-        const loopBuffer = await createLoopBuffer(crossfadeDuration);
-        if (!loopBuffer) {
-            showError('Failed to export loop.');
-            hideProgress();
-            return;
-        }
-        const wavBlob = bufferToWav(loopBuffer);
-        const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
         try {
-            if (window.showSaveFilePicker) {
-                const handle = await window.showSaveFilePicker({
-                    suggestedName: fileName,
-                    types: [{
-                        description: 'WAV Audio',
-                        accept: { 'audio/wav': ['.wav'] }
-                    }]
-                });
-                const writable = await handle.createWritable();
-                await writable.write(wavBlob);
-                await writable.close();
-            } else {
-                const url = URL.createObjectURL(wavBlob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = fileName;
-                a.click();
-                URL.revokeObjectURL(url);
+            if (!loopBuffer || !loopBlobUrl) {
+                loopBuffer = await createLoopBuffer(crossfadeDuration);
+                if (!loopBuffer) {
+                    showError('Failed to generate loop buffer.');
+                    console.log('Failed to generate loop buffer');
+                    hideProgress();
+                    return;
+                }
+                const wavBlob = bufferToWav(loopBuffer);
+                console.log('WAV blob created for download, size:', wavBlob.size, 'bytes');
+                if (loopBlobUrl) {
+                    URL.revokeObjectURL(loopBlobUrl);
+                    console.log('Revoked previous loopBlobUrl');
+                }
+                loopBlobUrl = URL.createObjectURL(wavBlob);
+                console.log('New loopBlobUrl created:', loopBlobUrl);
+                loopPlayer.src = loopBlobUrl;
+                loopPlayer.classList.remove('hidden');
             }
-        } catch (err) {
-            showError('Failed to save file. Using default download.');
-            console.error('Export error:', err);
-            const url = URL.createObjectURL(wavBlob);
+            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+            downloadLink.href = loopBlobUrl;
+            downloadLink.download = fileName;
+            downloadLinkContainer.classList.remove('hidden');
+            console.log('Download link updated, href:', loopBlobUrl, ', download:', fileName);
             const a = document.createElement('a');
-            a.href = url;
+            a.href = loopBlobUrl;
             a.download = fileName;
+            document.body.appendChild(a);
             a.click();
-            URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            console.log('Programmatic download triggered for:', fileName);
+            setTimeout(() => {
+                // Do not revoke loopBlobUrl here to keep it available for manual download
+                console.log('Delayed revocation skipped to preserve loopBlobUrl for manual download');
+            }, 1000);
+        } catch (err) {
+            showError('Failed to export loop: ' + err.message);
+            console.error('Download error:', err);
         }
         hideProgress();
     });
@@ -703,22 +721,34 @@ window.addEventListener('DOMContentLoaded', () => {
     shareBtn.addEventListener('click', async () => {
         if (!loopBuffer) {
             showError('No loop available to share.');
+            console.log('No loop available to share');
             return;
         }
         showProgress('Preparing to share...');
-        const wavBlob = bufferToWav(loopBuffer);
-        const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-        const file = new File([wavBlob], fileName, { type: 'audio/wav' });
         try {
+            const wavBlob = bufferToWav(loopBuffer);
+            console.log('WAV blob created for share, size:', wavBlob.size, 'bytes');
+            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+            const file = new File([wavBlob], fileName, { type: 'audio/wav' });
+            console.log('File created for share:', fileName, ', type:', file.type);
             if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                console.log('File sharing supported, attempting to share');
                 await navigator.share({
                     files: [file],
                     title: 'iOS13Looper Seamless Loop',
                     text: 'Share this audio loop created with iOS13Looper'
                 });
+                console.log('File shared successfully');
+            } else if (navigator.share) {
+                console.log('File sharing not supported, attempting text-based share');
+                await navigator.share({
+                    title: 'iOS13Looper Seamless Loop',
+                    text: 'I created a seamless audio loop with iOS13Looper. Download it from the app to listen!'
+                });
+                console.log('Text shared successfully');
             } else {
                 showError('Sharing is not supported on this device. Try downloading instead.');
-                console.warn('Web Share API not supported or cannot share files.');
+                console.log('Web Share API not supported');
             }
         } catch (err) {
             showError('Failed to share: ' + err.message);
@@ -728,6 +758,7 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     newAudioBtn.addEventListener('click', () => {
+        console.log('Reloading page for new audio');
         window.location.reload();
     });
 
@@ -770,7 +801,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     if (!window.AudioContext && !window.webkitAudioContext) {
         showError('Your browser does not support Web Audio API.');
-        console.error('Web Audio API not supported.');
+        console.error('Web Audio API not supported');
         return;
     }
 
