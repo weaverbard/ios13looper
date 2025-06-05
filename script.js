@@ -64,7 +64,7 @@ window.addEventListener('DOMContentLoaded', () => {
     progress.style.display = 'none';
     openBtn.disabled = true;
     uploadButton.disabled = true;
-    console.log('iOS13Looper 1.66 initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper 1.67 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
@@ -105,7 +105,7 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     audioInput.addEventListener('change', (e) => {
-        if (!e.target.files) return; // Safeguard
+        if (!e.target.files) return;
         if (e.target.files.length > 0) {
             uploadButton.disabled = false;
             console.log('File selected:', e.target.files[0].name);
@@ -655,9 +655,13 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Invalid crossfade duration:', crossfadeDuration);
             return;
         }
+        if (!audioInput.files || !audioInput.files[0]) {
+            showError('No original file available.');
+            return;
+        }
         showProgress('Saving loop...');
         try {
-            if (!loopBuffer || !loopBlob) {
+            if (!loopBlob) {
                 loopBuffer = await createLoopBuffer(crossfadeDuration);
                 if (!loopBuffer) {
                     showError('Failed to generate loop buffer.');
@@ -665,17 +669,17 @@ window.addEventListener('DOMContentLoaded', () => {
                     hideProgress();
                     return;
                 }
-                loopBlob = bufferToWav(loopBuffer);
+                loopBlob = bufferToWave(loopBuffer);
                 console.log('WAV blob created for download, size:', loopBlob.size);
             }
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(loopBlob);
+            a.href = URL.createObject(URL(loopBlob));
             a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            console.log('Programmatic download triggered:', fileName);
+            console.log('Downloaded loop:', fileName);
             hideProgress();
         } catch (err) {
             showError('Failed to export loop: ' + err.message);
@@ -685,27 +689,50 @@ window.addEventListener('DOMContentLoaded', () => {
     });
 
     openBtn.addEventListener('click', async () => {
+        if (!audioBuffer) {
+            showError('No audio loaded.');
+            console.log('No audio loaded');
+            return;
+        }
+        if (!audioInput.files || !audioInput.files[0]) {
+            showError('No original file available.');
+            console.log('No input file for filename');
+            return;
+        }
         if (!loopBlob) {
             showError('No loop available to open.');
-            console.log('No loop available to open');
+            console.log('No loop available');
             return;
         }
         showProgress('Opening loop...');
         try {
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-            const a = document.createElement('a');
             const dataUrl = await blobToDataURL(loopBlob);
-            a.href = dataUrl;
-            a.download = fileName;
-            a.target = '_blank';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            console.log('Opened loop with filename:', fileName);
+            console.log('Opening Data URL in new tab, filename:', fileName, 'size:', dataUrl.length);
+            const newTab = window.open(dataUrl, '_blank');
+            if (!newTab) {
+                throw new Error('Failed to open new tab; popup blocked or browser restriction');
+            }
+            console.log('Successfully opened loop in new tab');
             hideProgress();
         } catch (err) {
             showError('Failed to open loop: ' + err.message);
             console.error('Open error:', err);
+            console.log('Falling back to download');
+            try {
+                const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(loopBlob);
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showError('Failed to open tab. Saved to Downloads. Open Files app and share to AudioShare.');
+                console.log('Fallback download triggered:', fileName);
+            } catch (downloadError) {
+                showError('Fallback download failed: ' + downloadError.message);
+                console.error('Fallback download error:', downloadError);
+            }
             hideProgress();
         }
     });
@@ -756,7 +783,7 @@ window.addEventListener('DOMContentLoaded', () => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(new Error('Failed to convert Blob to Data URL'));
+            reader.onerror = (err) => reject(new Error('Failed to convert Blob to Data URL: ' + (err.message || 'Unknown error')));
             reader.readAsDataURL(blob);
         });
     }
