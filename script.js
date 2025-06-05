@@ -705,15 +705,13 @@ window.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const a = document.createElement('a');
             a.href = loopBlobUrl;
-            a.download = fileName; // Set filename for potential save from new tab
             a.target = '_blank'; // Open in new tab
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            console.log('Opening loop in new tab:', fileName);
+            console.log('Opening loop in new tab:', loopBlobUrl);
         } catch (err) {
             showError('Failed to open loop: ' + err.message);
             console.error('Open error:', err);
