@@ -38,9 +38,8 @@ window.addEventListener('DOMContentLoaded', () => {
     const previewLoopBtn = document.getElementById('previewLoopBtn');
     const resetBtn = document.getElementById('resetBtn');
     const downloadBtn = document.getElementById('downloadBtn');
-    const shareBtn = document.getElementById('shareBtn');
+    const openBtn = document.getElementById('openBtn');
     const newAudioBtn = document.getElementById('newAudioBtn');
-    const loopPlayer = document.getElementById('loopPlayer');
     const error = document.getElementById('error');
     const progress = document.getElementById('progress');
     const progressMessage = document.getElementById('progressMessage');
@@ -50,8 +49,8 @@ window.addEventListener('DOMContentLoaded', () => {
                      selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
                      playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
                      previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
-                     previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
-                     loopPlayer, error, progress, progressMessage];
+                     previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, openBtn, newAudioBtn,
+                     error, progress, progressMessage];
     if (elements.some(el => !el)) {
         showError('Initialization error: One or more UI elements are missing.');
         console.error('Missing elements:', elements.filter(el => !el));
@@ -61,8 +60,8 @@ window.addEventListener('DOMContentLoaded', () => {
     // Initialize state
     audioInput.value = '';
     progress.style.display = 'none';
-    loopPlayer.classList.add('hidden');
-    console.log('iOS13Looper 1.62 initialized. User Agent:', navigator.userAgent);
+    openBtn.disabled = true; // Disable OPEN LOOP until loop is generated
+    console.log('iOS13Looper 1.63 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
@@ -157,14 +156,13 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('crossfadeStep').classList.add('hidden');
         document.getElementById('previewStep').classList.add('hidden');
         document.getElementById('downloadStep').classList.add('hidden');
-        loopPlayer.classList.add('hidden');
-        loopPlayer.src = '';
         if (loopBlobUrl) {
             URL.revokeObjectURL(loopBlobUrl);
             loopBlobUrl = null;
             console.log('Revoked loopBlobUrl');
         }
         loopBuffer = null;
+        openBtn.disabled = true; // Disable OPEN LOOP on reset
         resizeCanvases();
         drawWaveform();
         clearError();
@@ -515,8 +513,7 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         loopBlobUrl = URL.createObjectURL(wavBlob);
         console.log('New loopBlobUrl created:', loopBlobUrl);
-        loopPlayer.src = loopBlobUrl;
-        loopPlayer.classList.remove('hidden');
+        openBtn.disabled = false; // Enable OPEN LOOP after loop is generated
         resizeCanvases();
         drawPreviewWaveform();
         hideProgress();
@@ -681,8 +678,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 }
                 loopBlobUrl = URL.createObjectURL(wavBlob);
                 console.log('New loopBlobUrl created:', loopBlobUrl);
-                loopPlayer.src = loopBlobUrl;
-                loopPlayer.classList.remove('hidden');
+                openBtn.disabled = false; // Enable OPEN LOOP after loop is generated
             }
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const a = document.createElement('a');
@@ -702,36 +698,26 @@ window.addEventListener('DOMContentLoaded', () => {
         hideProgress();
     });
 
-    shareBtn.addEventListener('click', async () => {
-        if (!loopBuffer) {
-            showError('No loop available to share.');
-            console.log('No loop available to share');
+    openBtn.addEventListener('click', async () => {
+        if (!loopBuffer || !loopBlobUrl) {
+            showError('No loop available to open.');
+            console.log('No loop available to open');
             return;
         }
-        showProgress('Preparing to share...');
         try {
-            const wavBlob = bufferToWav(loopBuffer);
-            console.log('WAV blob created for share, size:', wavBlob.size, 'bytes');
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-            const file = new File([wavBlob], fileName, { type: 'audio/wav' });
-            console.log('File created for share:', fileName, ', type:', file.type);
-            console.log('Checking share support: navigator.share=', !!navigator.share, ', navigator.canShare=', !!navigator.canShare);
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                console.log('File sharing supported, attempting to share');
-                await navigator.share({
-                    files: [file],
-                    title: 'iOS13Looper Seamless Loop'
-                });
-                console.log('File shared successfully');
-            } else {
-                showError('Sharing is not supported on this device. Try downloading and sharing manually.');
-                console.log('File sharing not supported: navigator.canShare returned false or undefined');
-            }
+            const a = document.createElement('a');
+            a.href = loopBlobUrl;
+            a.download = fileName; // Set filename for potential save from new tab
+            a.target = '_blank'; // Open in new tab
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            console.log('Opening loop in new tab:', fileName);
         } catch (err) {
-            showError('Failed to share: ' + err.message);
-            console.error('Share error:', err);
+            showError('Failed to open loop: ' + err.message);
+            console.error('Open error:', err);
         }
-        hideProgress();
     });
 
     newAudioBtn.addEventListener('click', () => {
