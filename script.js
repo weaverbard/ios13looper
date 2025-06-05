@@ -21,7 +21,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const playheadTime = document.querySelector('#playheadTime');
     const selectionStartSlider = document.querySelector('#selectionStartSlider');
     const selectionStartTime = document.querySelector('#selectionStartTime');
-    const selectionEndSlider = document.querySelector('#selectionEnd');
+    const selectionEndSlider = document.querySelector('#selectionEndSlider');
     const selectionEndTime = document.querySelector('#selectionEndTime');
     const playBtn = document.querySelector('#playBtn');
     const pauseBtn = document.querySelector('#pauseBtn');
@@ -105,9 +105,10 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     audioInput.addEventListener('change', (e) => {
+        if (!e.target.files) return; // Safeguard
         if (e.target.files.length > 0) {
             uploadButton.disabled = false;
-            console.log('File selected:', audioInput.files[0].name);
+            console.log('File selected:', e.target.files[0].name);
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 console.log('AudioContext preloaded, sampleRate:', audioContext.sampleRate);
@@ -130,7 +131,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     window.addEventListener('resize', resizeCanvases);
 
-    function resetToAudioBuffer() {
+    function resetToEditState() {
         if (!originalBuffer) return;
         audioBuffer = audioContext.createBuffer(
             originalBuffer.numberOfChannels,
@@ -241,7 +242,7 @@ window.addEventListener('DOMContentLoaded', () => {
                 originalBuffer.getChannelData(channel).set(audioBuffer.getChannelData(channel));
             }
             console.log('Resetting to edit state');
-            resetToAudioBuffer();
+            resetToEditState();
             hideProgress();
         } catch (err) {
             showError('Failed to load audio: ' + err.message);
@@ -305,7 +306,7 @@ window.addEventListener('DOMContentLoaded', () => {
         previewCtx.beginPath();
         previewCtx.strokeStyle = 'rgb(0,255,255)';
         for (let i = 0; i < previewCanvas.width; i++) {
-            let min = 1.0, max = 0;
+            let min = 1.0, max = -1.0;
             for (let j = 0; j < step; j++) {
                 const datum = data[(i * step) + j] || 0;
                 if (datum < min) min = datum;
@@ -316,11 +317,11 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         previewCtx.stroke();
 
-        const previewWaveformX = (previewPlayhead / loopBuffer.duration) * previewCanvas.width;
+        const previewPlayheadX = (previewPlayhead / loopBuffer.duration) * previewCanvas.width;
         previewCtx.strokeStyle = '#fff';
         previewCtx.beginPath();
-        previewCtx.moveTo(previewWaveformX, 0);
-        previewCtx.lineTo(previewWaveformX, previewCanvas.height);
+        previewCtx.moveTo(previewPlayheadX, 0);
+        previewCtx.lineTo(previewPlayheadX, previewCanvas.height);
         previewCtx.stroke();
     }
 
@@ -600,7 +601,7 @@ window.addEventListener('DOMContentLoaded', () => {
         isPlaying = false;
         previewIsPlaying = false;
         console.log('Resetting to edit state');
-        resetToAudioBuffer();
+        resetToEditState();
     });
 
     async function createLoopBuffer(crossfadeDuration) {
@@ -626,8 +627,7 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             for (let i = 0; i < crossfadeSamples; i++) {
                 const t = i / crossfadeSamples;
-                let fadeIn;
-                let fadeOut;
+                let fadeIn, fadeOut;
                 if (crossfadeType === 'equalPower') {
                     fadeIn = Math.sqrt(t);
                     fadeOut = Math.sqrt(1 - t);
@@ -651,7 +651,7 @@ window.addEventListener('DOMContentLoaded', () => {
         await resumeAudioContext();
         const crossfadeDuration = parseFloat(crossfadeSelect.value);
         if (crossfadeDuration > audioBuffer.duration / 2) {
-            showError('Invalid duration cannot exceed half the audio length.');
+            showError('Crossfade duration cannot exceed half the audio length.');
             console.log('Invalid crossfade duration:', crossfadeDuration);
             return;
         }
@@ -663,22 +663,23 @@ window.addEventListener('DOMContentLoaded', () => {
                     showError('Failed to generate loop buffer.');
                     console.log('Failed to generate loop buffer');
                     hideProgress();
+                    return;
                 }
                 loopBlob = bufferToWav(loopBuffer);
-                console.log('WAV blob created for download, size:', loopBlob.size, 'bytes');
+                console.log('WAV blob created for download, size:', loopBlob.size);
             }
-            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop'.wav');
+            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const a = document.createElement('a');
             a.href = URL.createObjectURL(loopBlob);
             a.download = fileName;
-            document.body.appendChild(a));
+            document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             console.log('Programmatic download triggered:', fileName);
             hideProgress();
         } catch (err) {
             showError('Failed to export loop: ' + err.message);
-            console.error('Download error:', err.message);
+            console.error('Download error:', err);
             hideProgress();
         }
     });
@@ -703,15 +704,15 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Opened loop with filename:', fileName);
             hideProgress();
         } catch (err) {
-            showError('Failed to open loop: ' + err.message');
-            console.error('Open error:', err.message);
+            showError('Failed to open loop: ' + err.message);
+            console.error('Open error:', err);
             hideProgress();
         }
     });
 
     newAudioBtn.addEventListener('click', () => {
         console.log('Reloading page for new audio');
-        window.location.reload(true);
+        window.location.reload();
     });
 
     function bufferToWav(buffer) {
@@ -725,12 +726,12 @@ window.addEventListener('DOMContentLoaded', () => {
         view.setUint32(4, 36 + buffer.length * numChannels * 2, true);
         writeString(view, 8, 'WAVE');
         writeString(view, 12, 'fmt ');
-        view.setUint32(16, 16, false);
+        view.setUint32(16, 16, true);
         view.setUint16(20, 1, true);
         view.setUint16(22, numChannels, true);
         view.setUint32(24, sampleRate, true);
         view.setUint32(28, sampleRate * numChannels * 2, true);
-        view.setUint16(32, numChannels * 2, false);
+        view.setUint16(32, numChannels * 2, true);
         view.setUint16(34, 16, true);
         writeString(view, 36, 'data');
         view.setUint32(40, buffer.length * numChannels * 2, true);
@@ -761,12 +762,12 @@ window.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!window.AudioContext && !window.webkitAudioContext) {
-        showError('Error: Your browser does not support Web Audio API.');
+        showError('Your browser does not support Web Audio API.');
         console.error('Web Audio API not supported');
         return;
     }
 
-    // Initialize as 
+    // Initialize
     resizeCanvases();
     uploadButton.disabled = true;
 });
