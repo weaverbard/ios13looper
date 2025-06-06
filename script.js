@@ -38,7 +38,7 @@ window.addEventListener('DOMContentLoaded', () => {
     const previewLoopBtn = document.querySelector('#previewLoopBtn');
     const resetBtn = document.querySelector('#resetBtn');
     const downloadBtn = document.querySelector('#downloadBtn');
-    const openBtn = document.querySelector('#openBtn');
+    const copyFileNameBtn = document.querySelector('#copyFileNameBtn');
     const newAudioBtn = document.querySelector('#newAudioBtn');
     const error = document.querySelector('#error');
     const progress = document.querySelector('#progress');
@@ -50,8 +50,8 @@ window.addEventListener('DOMContentLoaded', () => {
         selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
         playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
         previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
-        previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, openBtn, newAudioBtn, 
-        error, progress, progressMessage
+        previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, copyFileNameBtn, 
+        newAudioBtn, error, progress, progressMessage
     ];
     if (elements.some(el => !el)) {
         showError('Initialization error: One or more UI elements are missing.');
@@ -62,14 +62,20 @@ window.addEventListener('DOMContentLoaded', () => {
     // Initialize state
     audioInput.value = '';
     progress.style.display = 'none';
-    openBtn.disabled = true;
+    copyFileNameBtn.disabled = true;
     uploadButton.disabled = true;
-    console.log('iOS13Looper 1.69 initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper 1.70 initialized. User Agent:', navigator.userAgent);
 
-    function showError(message) {
+    function showError(message, timeout = null) {
         error.textContent = message;
         error.classList.remove('hidden');
-        console.error('Error:', message);
+        console.log('Error:', message);
+        if (timeout) {
+            setTimeout(() => {
+                error.textContent = '';
+                error.classList.add('hidden');
+            }, timeout);
+        }
     }
 
     function clearError() {
@@ -164,7 +170,7 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Cleared loopBlob');
         }
         loopBuffer = null;
-        openBtn.disabled = true;
+        copyFileNameBtn.disabled = true;
         resizeCanvases();
         drawWaveform();
         clearError();
@@ -508,7 +514,7 @@ window.addEventListener('DOMContentLoaded', () => {
         previewIsPlaying = false;
         document.querySelector('#previewStep').classList.remove('hidden');
         document.querySelector('#downloadStep').classList.remove('hidden');
-        openBtn.disabled = false;
+        copyFileNameBtn.disabled = false;
         resizeCanvases();
         drawPreviewWaveform();
         hideProgress();
@@ -642,6 +648,28 @@ window.addEventListener('DOMContentLoaded', () => {
         return loopBuffer;
     }
 
+    copyFileNameBtn.addEventListener('click', async () => {
+        if (!audioInput.files || !audioInput.files[0]) {
+            showError('No file loaded.');
+            console.log('No file loaded for copy');
+            return;
+        }
+        if (!loopBlob) {
+            showError('No loop available.');
+            console.log('No loop available for copy');
+            return;
+        }
+        try {
+            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+            await navigator.clipboard.writeText(fileName);
+            showError('Filename copied!', 2000);
+            console.log('Copied filename:', fileName);
+        } catch (err) {
+            showError('Failed to copy filename: ' + err.message);
+            console.error('Copy error:', err);
+        }
+    });
+
     downloadBtn.addEventListener('click', async () => {
         if (!audioBuffer) {
             showError('No audio loaded.');
@@ -688,36 +716,6 @@ window.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    openBtn.addEventListener('click', async () => {
-        if (!audioBuffer) {
-            showError('No audio loaded.');
-            console.log('No audio loaded');
-            return;
-        }
-        if (!audioInput.files || !audioInput.files[0]) {
-            showError('No original file available.');
-            console.log('No input file');
-            return;
-        }
-        if (!loopBlob) {
-            showError('No loop available.');
-            console.log('No loop available');
-            return;
-        }
-        showProgress('Generating file...');
-        try {
-            const dataUrl = await blobToDataURL(loopBlob);
-            console.log('Opening Data URL, size:', dataUrl.length);
-            window.open(dataUrl, '_blank');
-            console.log('Opened loop in new tab');
-            hideProgress();
-        } catch (err) {
-            showError('Failed to open loop: ' + err.message);
-            console.error('Open error:', err);
-            hideProgress();
-        }
-    });
-
     newAudioBtn.addEventListener('click', () => {
         console.log('Reloading page for new audio');
         window.location.reload();
@@ -758,15 +756,6 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < string.length; i++) {
             view.setUint8(offset + i, string.charCodeAt(i));
         }
-    }
-
-    function blobToDataURL(blob) {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = (err) => reject(new Error('Failed to convert Blob to Data URL: ' + (err.message || 'Unknown error')));
-            reader.readAsDataURL(blob);
-        });
     }
 
     if (!window.AudioContext && !window.webkitAudioContext) {
