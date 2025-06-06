@@ -64,7 +64,7 @@ window.addEventListener('DOMContentLoaded', () => {
     progress.style.display = 'none';
     openBtn.disabled = true;
     uploadButton.disabled = true;
-    console.log('iOS13Looper 1.68 initialized. User Agent:', navigator.userAgent);
+    console.log('iOS13Looper 1.69 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
@@ -308,7 +308,7 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < previewCanvas.width; i++) {
             let min = 1.0, max = -1.0;
             for (let j = 0; j < step; j++) {
-                const datum = data[(i * step) + j] || 0;
+                const datum = data[(i * step + j) || 0];
                 if (datum < min) min = datum;
                 if (datum > max) max = datum;
             }
@@ -572,7 +572,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const crossfadeDuration = parseFloat(crossfadeSelect.value);
         const previewStart = Math.max(0, loopBuffer.duration - crossfadeDuration - 5);
         previewPlayhead = previewStart;
-        previewPlayheadSlider.value = previewPlayhead;
+        previewPlayheadSlider.value = previewStart;
         previewPlayheadTime.textContent = previewStart.toFixed(2) + 's';
         source = audioContext.createBufferSource();
         source.buffer = loopBuffer;
@@ -696,41 +696,23 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         if (!audioInput.files || !audioInput.files[0]) {
             showError('No original file available.');
-            console.log('No input file for filename');
+            console.log('No input file');
             return;
         }
         if (!loopBlob) {
-            showError('No loop available to open.');
+            showError('No loop available.');
             console.log('No loop available');
             return;
         }
-        showProgress('Preparing loop...');
+        showProgress('Generating file...');
         try {
-            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-            // Create audio player
-            let audioPlayer = document.querySelector('#loopAudioPlayer');
-            if (audioPlayer) {
-                URL.revokeObjectURL(audioPlayer.src); // Clean up previous Blob URL
-                audioPlayer.remove();
-            }
-            audioPlayer = document.createElement('audio');
-            audioPlayer.id = 'loopAudioPlayer';
-            audioPlayer.controls = true;
-            audioPlayer.src = URL.createObjectURL(loopBlob);
-            audioPlayer.style.marginTop = '10px';
-            document.querySelector('#downloadStep').appendChild(audioPlayer);
-            // Trigger download for Files
-            const a = document.createElement('a');
-            a.href = audioPlayer.src;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            showError('Loop ready below. Play and share to AudioShare, or open Files to share the saved loop.');
-            console.log('Audio player added, file saved:', fileName);
+            const dataUrl = await blobToDataURL(loopBlob);
+            console.log('Opening Data URL, size:', dataUrl.length);
+            window.open(dataUrl, '_blank');
+            console.log('Opened loop in new tab');
             hideProgress();
         } catch (err) {
-            showError('Failed to prepare loop: ' + err.message);
+            showError('Failed to open loop: ' + err.message);
             console.error('Open error:', err);
             hideProgress();
         }
