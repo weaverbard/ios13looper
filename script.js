@@ -9,49 +9,50 @@ window.addEventListener('DOMContentLoaded', () => {
     let isPlaying = false;
     let previewPlayhead = 0;
     let previewIsPlaying = false;
-    let loopBlobUrl = null;
+    let loopBlob = null;
 
-    const canvas = document.getElementById('waveform');
+    const canvas = document.querySelector('#waveform');
     const ctx = canvas.getContext('2d');
-    const previewCanvas = document.getElementById('previewWaveform');
+    const previewCanvas = document.querySelector('#previewWaveform');
     const previewCtx = previewCanvas.getContext('2d');
-    const audioInput = document.getElementById('audioInput');
-    const uploadButton = document.getElementById('uploadButton');
-    const playheadSlider = document.getElementById('playheadSlider');
-    const playheadTime = document.getElementById('playheadTime');
-    const selectionStartSlider = document.getElementById('selectionStartSlider');
-    const selectionStartTime = document.getElementById('selectionStartTime');
-    const selectionEndSlider = document.getElementById('selectionEndSlider');
-    const selectionEndTime = document.getElementById('selectionEndTime');
-    const playBtn = document.getElementById('playBtn');
-    const pauseBtn = document.getElementById('pauseBtn');
-    const startBtn = document.getElementById('startBtn');
-    const endBtn = document.getElementById('endBtn');
-    const deleteBtn = document.getElementById('deleteBtn');
-    const crossfadeSelect = document.getElementById('crossfadeSelect');
-    const crossfadeTypeSelect = document.getElementById('crossfadeTypeSelect');
-    const previewBtn = document.getElementById('previewBtn');
-    const previewPlayheadSlider = document.getElementById('previewPlayheadSlider');
-    const previewPlayheadTime = document.getElementById('previewPlayheadTime');
-    const previewPlayBtn = document.getElementById('previewPlayBtn');
-    const previewPauseBtn = document.getElementById('previewPauseBtn');
-    const previewLoopBtn = document.getElementById('previewLoopBtn');
-    const resetBtn = document.getElementById('resetBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const shareBtn = document.getElementById('shareBtn');
-    const newAudioBtn = document.getElementById('newAudioBtn');
-    const loopPlayer = document.getElementById('loopPlayer');
-    const error = document.getElementById('error');
-    const progress = document.getElementById('progress');
-    const progressMessage = document.getElementById('progressMessage');
+    const audioInput = document.querySelector('#audioInput');
+    const uploadButton = document.querySelector('#uploadButton');
+    const playheadSlider = document.querySelector('#playheadSlider');
+    const playheadTime = document.querySelector('#playheadTime');
+    const selectionStartSlider = document.querySelector('#selectionStartSlider');
+    const selectionStartTime = document.querySelector('#selectionStartTime');
+    const selectionEndSlider = document.querySelector('#selectionEndSlider');
+    const selectionEndTime = document.querySelector('#selectionEndTime');
+    const playBtn = document.querySelector('#playBtn');
+    const pauseBtn = document.querySelector('#pauseBtn');
+    const startBtn = document.querySelector('#startBtn');
+    const endBtn = document.querySelector('#endBtn');
+    const deleteBtn = document.querySelector('#deleteBtn');
+    const crossfadeSelect = document.querySelector('#crossfadeSelect');
+    const crossfadeTypeSelect = document.querySelector('#crossfadeTypeSelect');
+    const previewBtn = document.querySelector('#previewBtn');
+    const previewPlayheadSlider = document.querySelector('#previewPlayheadSlider');
+    const previewPlayheadTime = document.querySelector('#previewPlayheadTime');
+    const previewPlayBtn = document.querySelector('#previewPlayBtn');
+    const previewPauseBtn = document.querySelector('#previewPauseBtn');
+    const previewLoopBtn = document.querySelector('#previewLoopBtn');
+    const resetBtn = document.querySelector('#resetBtn');
+    const downloadBtn = document.querySelector('#downloadBtn');
+    const openBtn = document.querySelector('#openBtn');
+    const newAudioBtn = document.querySelector('#newAudioBtn');
+    const error = document.querySelector('#error');
+    const progress = document.querySelector('#progress');
+    const progressMessage = document.querySelector('#progressMessage');
 
     // Check for missing elements
-    const elements = [canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime, 
-                     selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
-                     playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
-                     previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
-                     previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, shareBtn, newAudioBtn,
-                     loopPlayer, error, progress, progressMessage];
+    const elements = [
+        canvas, previewCanvas, audioInput, uploadButton, playheadSlider, playheadTime,
+        selectionStartSlider, selectionStartTime, selectionEndSlider, selectionEndTime,
+        playBtn, pauseBtn, startBtn, endBtn, deleteBtn, crossfadeSelect, crossfadeTypeSelect,
+        previewBtn, previewPlayheadSlider, previewPlayheadTime, previewPlayBtn, 
+        previewPauseBtn, previewLoopBtn, resetBtn, downloadBtn, openBtn, newAudioBtn, 
+        error, progress, progressMessage
+    ];
     if (elements.some(el => !el)) {
         showError('Initialization error: One or more UI elements are missing.');
         console.error('Missing elements:', elements.filter(el => !el));
@@ -61,13 +62,14 @@ window.addEventListener('DOMContentLoaded', () => {
     // Initialize state
     audioInput.value = '';
     progress.style.display = 'none';
-    loopPlayer.classList.add('hidden');
-    console.log('iOS13Looper 1.62 initialized. User Agent:', navigator.userAgent);
+    openBtn.disabled = true;
+    uploadButton.disabled = true;
+    console.log('iOS13Looper 1.68 initialized. User Agent:', navigator.userAgent);
 
     function showError(message) {
         error.textContent = message;
         error.classList.remove('hidden');
-        console.log('Error:', message);
+        console.error('Error:', message);
     }
 
     function clearError() {
@@ -89,7 +91,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     function resumeAudioContext() {
         if (audioContext && audioContext.state === 'suspended') {
-            console.log('Resuming AudioContext, current state:', audioContext.state);
+            console.log('Resuming AudioContext, state:', audioContext.state);
             return audioContext.resume().then(() => {
                 console.log('AudioContext resumed, state:', audioContext.state);
             }).catch(err => {
@@ -102,14 +104,14 @@ window.addEventListener('DOMContentLoaded', () => {
         return Promise.resolve();
     }
 
-    // Preload AudioContext on first user interaction
     audioInput.addEventListener('change', (e) => {
+        if (!e.target.files) return;
         if (e.target.files.length > 0) {
             uploadButton.disabled = false;
             console.log('File selected:', e.target.files[0].name);
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                console.log('AudioContext preloaded on file input, sampleRate:', audioContext.sampleRate);
+                console.log('AudioContext preloaded, sampleRate:', audioContext.sampleRate);
                 resumeAudioContext();
             }
         } else {
@@ -153,18 +155,16 @@ window.addEventListener('DOMContentLoaded', () => {
         selectionEndSlider.value = audioBuffer.duration;
         selectionEndTime.textContent = audioBuffer.duration.toFixed(2) + 's';
         crossfadeSelect.value = '1';
-        document.getElementById('editStep').classList.remove('hidden');
-        document.getElementById('crossfadeStep').classList.add('hidden');
-        document.getElementById('previewStep').classList.add('hidden');
-        document.getElementById('downloadStep').classList.add('hidden');
-        loopPlayer.classList.add('hidden');
-        loopPlayer.src = '';
-        if (loopBlobUrl) {
-            URL.revokeObjectURL(loopBlobUrl);
-            loopBlobUrl = null;
-            console.log('Revoked loopBlobUrl');
+        document.querySelector('#editStep').classList.remove('hidden');
+        document.querySelector('#crossfadeStep').classList.add('hidden');
+        document.querySelector('#previewStep').classList.add('hidden');
+        document.querySelector('#downloadStep').classList.add('hidden');
+        if (loopBlob) {
+            loopBlob = null;
+            console.log('Cleared loopBlob');
         }
         loopBuffer = null;
+        openBtn.disabled = true;
         resizeCanvases();
         drawWaveform();
         clearError();
@@ -177,50 +177,43 @@ window.addEventListener('DOMContentLoaded', () => {
             showError('No file selected.');
             return;
         }
-
         if (file.size > 100 * 1024 * 1024) {
             showError('File too large. Maximum size is 100MB.');
             return;
         }
-
         console.log('Starting file load, file:', file.name, ', size:', file.size, ', type:', file.type);
-        showProgress('Loading audio...');
+        showProgress('Loading audio file...');
         try {
             if (!audioContext) {
                 audioContext = new (window.AudioContext || window.webkitAudioContext)();
                 console.log('AudioContext created, sampleRate:', audioContext.sampleRate);
             }
-            console.log('Resuming AudioContext');
             await resumeAudioContext();
             console.log('Fetching file as ArrayBuffer');
             const response = await fetch(URL.createObjectURL(file));
-            console.log('Fetch response received, status:', response.status);
+            console.log('Fetch response, status:', response.status);
             const arrayBuffer = await response.arrayBuffer();
-            console.log('Fetched arrayBuffer, length:', arrayBuffer.byteLength);
+            console.log('ArrayBuffer fetched, length:', arrayBuffer.byteLength);
             console.log('Starting decodeAudioData');
 
-            // Compatibility for older Safari decodeAudioData
             const decodeAudioDataPromise = new Promise((resolve, reject) => {
                 try {
-                    // Try Promise-based decodeAudioData
                     audioContext.decodeAudioData(arrayBuffer).then(resolve).catch((err) => {
-                        console.log('Promise-based decodeAudioData failed:', err.message);
-                        // Fallback to callback-based decodeAudioData
-                        console.log('Falling back to callback-based decodeAudioData');
+                        console.log('Promise decodeAudioData failed:', err.message);
+                        console.log('Falling back to callback decodeAudioData');
                         audioContext.decodeAudioData(
                             arrayBuffer,
                             (decodedBuffer) => resolve(decodedBuffer),
-                            (err) => reject(new Error('Callback-based decodeAudioData failed: ' + (err.message || 'Unknown error')))
+                            (err) => reject(new Error('Callback decode failed: ' + (err.message || 'Unknown error')))
                         );
                     });
                 } catch (err) {
-                    // Handle synchronous errors (e.g., Safari 13.1.2 throwing "Not enough arguments")
                     console.log('Synchronous decodeAudioData error:', err.message);
-                    console.log('Falling back to callback-based decodeAudioData');
+                    console.log('Falling back to callback decodeAudioData');
                     audioContext.decodeAudioData(
                         arrayBuffer,
                         (decodedBuffer) => resolve(decodedBuffer),
-                        (err) => reject(new Error('Callback-based decodeAudioData failed: ' + (err.message || 'Unknown error')))
+                        (err) => reject(new Error('Callback decode failed: ' + (err.message || 'Unknown error')))
                     );
                 }
             });
@@ -250,13 +243,12 @@ window.addEventListener('DOMContentLoaded', () => {
             }
             console.log('Resetting to edit state');
             resetToEditState();
-            console.log('Hiding progress');
             hideProgress();
         } catch (err) {
             showError('Failed to load audio: ' + err.message);
             console.error('Audio loading error:', err);
             console.log('User Agent:', navigator.userAgent);
-            console.log('File type:', file.type, ', Size:', file.size, ', Name:', file.name);
+            console.log('File type:', file.type, ', size:', file.size, ', name:', file.name);
             hideProgress();
         }
     });
@@ -481,7 +473,7 @@ window.addEventListener('DOMContentLoaded', () => {
         selectionEndSlider.value = audioBuffer.duration;
         selectionEndTime.textContent = audioBuffer.duration.toFixed(2) + 's';
         drawWaveform();
-        document.getElementById('crossfadeStep').classList.remove('hidden');
+        document.querySelector('#crossfadeStep').classList.remove('hidden');
         hideProgress();
     });
 
@@ -500,23 +492,23 @@ window.addEventListener('DOMContentLoaded', () => {
             hideProgress();
             return;
         }
+        try {
+            loopBlob = bufferToWav(loopBuffer);
+            console.log('WAV blob created for preview, size:', loopBlob.size);
+        } catch (err) {
+            showError('Failed to generate loop blob: ' + err.message);
+            console.error('Blob error:', err);
+            hideProgress();
+            return;
+        }
         previewPlayheadSlider.max = loopBuffer.duration;
         previewPlayheadSlider.value = 0;
         previewPlayheadTime.textContent = '0.00s';
         previewPlayhead = 0;
         previewIsPlaying = false;
-        document.getElementById('previewStep').classList.remove('hidden');
-        document.getElementById('downloadStep').classList.remove('hidden');
-        const wavBlob = bufferToWav(loopBuffer);
-        console.log('WAV blob created for preview, size:', wavBlob.size, 'bytes');
-        if (loopBlobUrl) {
-            URL.revokeObjectURL(loopBlobUrl);
-            console.log('Revoked previous loopBlobUrl');
-        }
-        loopBlobUrl = URL.createObjectURL(wavBlob);
-        console.log('New loopBlobUrl created:', loopBlobUrl);
-        loopPlayer.src = loopBlobUrl;
-        loopPlayer.classList.remove('hidden');
+        document.querySelector('#previewStep').classList.remove('hidden');
+        document.querySelector('#downloadStep').classList.remove('hidden');
+        openBtn.disabled = false;
         resizeCanvases();
         drawPreviewWaveform();
         hideProgress();
@@ -581,7 +573,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const previewStart = Math.max(0, loopBuffer.duration - crossfadeDuration - 5);
         previewPlayhead = previewStart;
         previewPlayheadSlider.value = previewPlayhead;
-        previewPlayheadTime.textContent = previewPlayhead.toFixed(2) + 's';
+        previewPlayheadTime.textContent = previewStart.toFixed(2) + 's';
         source = audioContext.createBufferSource();
         source.buffer = loopBuffer;
         source.connect(audioContext.destination);
@@ -617,7 +609,7 @@ window.addEventListener('DOMContentLoaded', () => {
         const crossfadeSamples = Math.floor(crossfadeDuration * sampleRate);
         const newLength = audioBuffer.length - crossfadeSamples;
         if (newLength <= 0) {
-            showError('Crossfade duration is too long for the audio length.');
+            showError('Crossfade duration too long for audio length.');
             return null;
         }
         const loopBuffer = audioContext.createBuffer(
@@ -663,9 +655,13 @@ window.addEventListener('DOMContentLoaded', () => {
             console.log('Invalid crossfade duration:', crossfadeDuration);
             return;
         }
-        showProgress('Exporting loop...');
+        if (!audioInput.files || !audioInput.files[0]) {
+            showError('No original file available.');
+            return;
+        }
+        showProgress('Saving loop...');
         try {
-            if (!loopBuffer || !loopBlobUrl) {
+            if (!loopBlob) {
                 loopBuffer = await createLoopBuffer(crossfadeDuration);
                 if (!loopBuffer) {
                     showError('Failed to generate loop buffer.');
@@ -673,65 +669,71 @@ window.addEventListener('DOMContentLoaded', () => {
                     hideProgress();
                     return;
                 }
-                const wavBlob = bufferToWav(loopBuffer);
-                console.log('WAV blob created for download, size:', wavBlob.size, 'bytes');
-                if (loopBlobUrl) {
-                    URL.revokeObjectURL(loopBlobUrl);
-                    console.log('Revoked previous loopBlobUrl');
-                }
-                loopBlobUrl = URL.createObjectURL(wavBlob);
-                console.log('New loopBlobUrl created:', loopBlobUrl);
-                loopPlayer.src = loopBlobUrl;
-                loopPlayer.classList.remove('hidden');
+                loopBlob = bufferToWav(loopBuffer);
+                console.log('WAV blob created for download, size:', loopBlob.size);
             }
             const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
             const a = document.createElement('a');
-            a.href = loopBlobUrl;
+            a.href = URL.createObjectURL(loopBlob);
             a.download = fileName;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            console.log('Programmatic download triggered for:', fileName);
-            setTimeout(() => {
-                console.log('Delayed revocation skipped to preserve loopBlobUrl for reuse');
-            }, 1000);
+            console.log('Downloaded loop:', fileName);
+            hideProgress();
         } catch (err) {
             showError('Failed to export loop: ' + err.message);
             console.error('Download error:', err);
+            hideProgress();
         }
-        hideProgress();
     });
 
-    shareBtn.addEventListener('click', async () => {
-        if (!loopBuffer) {
-            showError('No loop available to share.');
-            console.log('No loop available to share');
+    openBtn.addEventListener('click', async () => {
+        if (!audioBuffer) {
+            showError('No audio loaded.');
+            console.log('No audio loaded');
             return;
         }
-        showProgress('Preparing to share...');
-        try {
-            const wavBlob = bufferToWav(loopBuffer);
-            console.log('WAV blob created for share, size:', wavBlob.size, 'bytes');
-            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
-            const file = new File([wavBlob], fileName, { type: 'audio/wav' });
-            console.log('File created for share:', fileName, ', type:', file.type);
-            console.log('Checking share support: navigator.share=', !!navigator.share, ', navigator.canShare=', !!navigator.canShare);
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                console.log('File sharing supported, attempting to share');
-                await navigator.share({
-                    files: [file],
-                    title: 'iOS13Looper Seamless Loop'
-                });
-                console.log('File shared successfully');
-            } else {
-                showError('Sharing is not supported on this device. Try downloading and sharing manually.');
-                console.log('File sharing not supported: navigator.canShare returned false or undefined');
-            }
-        } catch (err) {
-            showError('Failed to share: ' + err.message);
-            console.error('Share error:', err);
+        if (!audioInput.files || !audioInput.files[0]) {
+            showError('No original file available.');
+            console.log('No input file for filename');
+            return;
         }
-        hideProgress();
+        if (!loopBlob) {
+            showError('No loop available to open.');
+            console.log('No loop available');
+            return;
+        }
+        showProgress('Preparing loop...');
+        try {
+            const fileName = audioInput.files[0].name.replace(/\.[^/.]+$/, '') + '_loop.wav';
+            // Create audio player
+            let audioPlayer = document.querySelector('#loopAudioPlayer');
+            if (audioPlayer) {
+                URL.revokeObjectURL(audioPlayer.src); // Clean up previous Blob URL
+                audioPlayer.remove();
+            }
+            audioPlayer = document.createElement('audio');
+            audioPlayer.id = 'loopAudioPlayer';
+            audioPlayer.controls = true;
+            audioPlayer.src = URL.createObjectURL(loopBlob);
+            audioPlayer.style.marginTop = '10px';
+            document.querySelector('#downloadStep').appendChild(audioPlayer);
+            // Trigger download for Files
+            const a = document.createElement('a');
+            a.href = audioPlayer.src;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            showError('Loop ready below. Play and share to AudioShare, or open Files to share the saved loop.');
+            console.log('Audio player added, file saved:', fileName);
+            hideProgress();
+        } catch (err) {
+            showError('Failed to prepare loop: ' + err.message);
+            console.error('Open error:', err);
+            hideProgress();
+        }
     });
 
     newAudioBtn.addEventListener('click', () => {
@@ -774,6 +776,15 @@ window.addEventListener('DOMContentLoaded', () => {
         for (let i = 0; i < string.length; i++) {
             view.setUint8(offset + i, string.charCodeAt(i));
         }
+    }
+
+    function blobToDataURL(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = (err) => reject(new Error('Failed to convert Blob to Data URL: ' + (err.message || 'Unknown error')));
+            reader.readAsDataURL(blob);
+        });
     }
 
     if (!window.AudioContext && !window.webkitAudioContext) {
