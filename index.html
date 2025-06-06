@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>iOS13Looper 1.62</title>
+    <title>iOS13Looper 1.68</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <div class="container">
-        <h1>iOS13Looper 1.62</h1>
+        <h1>iOS13Looper 1.68</h1>
         <div class="step">
-            <h2>1. Upload Audio</h2>
+            <h2>Upload</h2>
             <input type="file" id="audioInput" accept="audio/wav,audio/mpeg,audio/aiff,.wav,.mp3,.aif,.aiff">
             <button id="uploadButton" disabled>Upload</button>
         </div>
         <div class="step hidden" id="editStep">
-            <h2>2. Edit Audio</h2>
+            <h2>Edit Audio</h2>
             <canvas id="waveform"></canvas>
             <div class="slider-container">
                 <label for="playheadSlider">Playhead:</label>
@@ -43,7 +43,7 @@
             </div>
         </div>
         <div class="step hidden" id="crossfadeStep">
-            <h2>3. Crossfade Settings</h2>
+            <h2>Crossfade Settings</h2>
             <label for="crossfadeSelect">Crossfade Duration (seconds):</label>
             <select id="crossfadeSelect">
                 <option value="1">1s</option>
@@ -63,7 +63,7 @@
             </div>
         </div>
         <div class="step hidden" id="previewStep">
-            <h2>4. Preview Loop</h2>
+            <h2>Preview Loop</h2>
             <p>Canvas shows the looped audio with crossfade applied.</p>
             <canvas id="previewWaveform"></canvas>
             <div class="slider-container">
@@ -78,12 +78,11 @@
             </div>
         </div>
         <div class="step hidden" id="downloadStep">
-            <h2>5. Download Loop</h2>
-            <p>Play or share your loop, or download it to your device.</p>
-            <audio id="loopPlayer" controls class="hidden"></audio>
+            <h2>Download Loop</h2>
+            <p>Play the loop below and share to AudioShare via the browser’s Share button, or open to share to Finder to Files to save ([original_filename]_loop.wav).</p>
             <div class="controls">
-                <button id="downloadBtn">DOWNLOAD LOOP</button>
-                <button id="shareBtn">SHARE LOOP</button>
+                <button id="downloadBtn">Download LOOP</button>
+                <button id="openBtn">OPEN LOOP</button>
                 <button id="newAudioBtn">NEW AUDIO</button>
             </div>
         </div>
